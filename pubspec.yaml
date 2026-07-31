@@ -7,8 +7,8 @@ environment:
   sdk: ^3.10.4
 
 dependencies:
-  dio: ^5.9.0
-  xml: ^6.6.1
+  dio: ^5.10.0
+  xml: ^7.0.1
 
 dev_dependencies:
   lints: ^6.0.0
