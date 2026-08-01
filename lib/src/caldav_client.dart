@@ -201,11 +201,13 @@ class CalDavClient {
       allowInsecure: allowInsecure,
     );
 
+/*
     final authenticated = await client.verifyAuth();
     if (!authenticated) {
       client.close();
       throw const CalDavException('Authentication failed', statusCode: 401);
     }
+*/
 
     await client.discover();
     return client;
