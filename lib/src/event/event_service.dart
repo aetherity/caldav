@@ -1,19 +1,26 @@
 import 'package:dio/dio.dart';
 
 import '../calendar/calendar.dart';
-import '../client/dio_webdav_client.dart';
+import '../client/webdav_client.dart';
 import '../exceptions/caldav_exception.dart';
+import '../sync/calendar_sync_result.dart';
 import '../utils/icalendar_utils.dart';
+import '../webdav/dav_depth.dart';
 import '../webdav/multistatus.dart';
+import '../webdav/sync_collection.dart';
+import '../webdav/sync_service.dart';
 import '../webdav/xml_namespaces.dart';
 import 'event.dart';
 import 'icalendar_parser.dart';
+import 'journal.dart';
+import 'todo.dart';
 
 /// Service for event CRUD operations
 class EventService {
-  final DioWebDavClient _client;
+  final WebDavClient _client;
+  final SyncService _syncService;
 
-  EventService(this._client);
+  EventService(this._client) : _syncService = SyncService(_client);
 
   /// Parse a single DavResponse into CalendarEvent
   CalendarEvent? _parseEventFromResponse(
@@ -74,7 +81,7 @@ class EventService {
       final response = await _client.report(
         calendar.href.toString(),
         body: body,
-        depth: 1,
+        depth: DavDepth.one,
       );
 
       final multiStatus = MultiStatus.fromXml(response.data ?? '');
@@ -126,7 +133,7 @@ class EventService {
       final response = await _client.report(
         calendar.href.toString(),
         body: body,
-        depth: 1,
+        depth: DavDepth.one,
       );
 
       final multiStatus = MultiStatus.fromXml(response.data ?? '');
@@ -146,6 +153,7 @@ class EventService {
       final response = await _client.put(
         eventPath.toString(),
         body: event.toIcalendar(),
+        contentType: 'text/calendar; charset=utf-8',
         ifNoneMatch: '*', // Only create if not exists
       );
 
@@ -175,6 +183,7 @@ class EventService {
       final response = await _client.put(
         event.href.toString(),
         body: event.toIcalendar(),
+        contentType: 'text/calendar; charset=utf-8',
         ifMatch: event.etag, // Optimistic locking
       );
 
@@ -238,7 +247,7 @@ class EventService {
       final response = await _client.report(
         calendar.href.toString(),
         body: body,
-        depth: 1,
+        depth: DavDepth.one,
       );
 
       final multiStatus = MultiStatus.fromXml(response.data ?? '');
@@ -260,7 +269,7 @@ class EventService {
       final response = await _client.report(
         calendar.href.toString(),
         body: body,
-        depth: 1,
+        depth: DavDepth.one,
       );
 
       final multiStatus = MultiStatus.fromXml(response.data ?? '');
@@ -287,6 +296,118 @@ class EventService {
     } on DioException catch (e) {
       throw _mapException(e, 'Failed to find event by UID');
     }
+  }
+
+  /// Synchronize calendar members via RFC 6578 `sync-collection`.
+  ///
+  /// Pass [syncToken] from a previous [CalendarSyncResult] for an incremental
+  /// sync; omit (or pass null/empty) for a full baseline.
+  ///
+  /// When [followTruncation] is true (default), pages are followed until the
+  /// server stops reporting `number-of-matches-within-limits`.
+  ///
+  /// Throws [InvalidSyncTokenException] when the token is no longer valid —
+  /// discard local state and re-sync with a null token.
+  Future<CalendarSyncResult> sync(
+    Calendar calendar, {
+    String? syncToken,
+    int? limit,
+    bool includeData = true,
+    bool followTruncation = true,
+    SyncLevel level = SyncLevel.members,
+  }) async {
+    final CollectionSyncResult raw;
+    if (followTruncation) {
+      raw = await _syncService.syncCollectionFully(
+        calendar.href,
+        rebuild: (token) => SyncCollectionBuilder.calendar(
+          syncToken: token ?? syncToken,
+          level: level,
+          limit: limit,
+          includeData: includeData,
+        ),
+      );
+    } else {
+      raw = await _syncService.syncCollection(
+        calendar.href,
+        SyncCollectionBuilder.calendar(
+          syncToken: syncToken,
+          level: level,
+          limit: limit,
+          includeData: includeData,
+        ),
+      );
+    }
+
+    return _toCalendarSyncResult(raw, calendar);
+  }
+
+  /// Read the collection's current `DAV:sync-token` without listing members.
+  Future<String?> getSyncToken(Calendar calendar) =>
+      _syncService.getSyncToken(calendar.href);
+
+  CalendarSyncResult _toCalendarSyncResult(
+    CollectionSyncResult raw,
+    Calendar calendar,
+  ) {
+    final events = <CalendarEvent>[];
+    final todos = <CalendarTodo>[];
+    final journals = <CalendarJournal>[];
+    final deleted = <Uri>[];
+
+    for (final change in raw.changes) {
+      if (change.isDeleted) {
+        deleted.add(change.resolvedHref);
+        continue;
+      }
+      final data = change.data;
+      if (data == null || data.isEmpty) continue;
+
+      final event = ICalendarParser.parseEvent(
+        data,
+        calendarId: calendar.uid,
+        href: change.resolvedHref,
+        etag: change.etag,
+        isReadOnly: calendar.isReadOnly,
+      );
+      if (event != null) {
+        events.add(event);
+        continue;
+      }
+
+      final todo = ICalendarParser.parseTodo(
+        data,
+        calendarId: calendar.uid,
+        href: change.resolvedHref,
+        etag: change.etag,
+        isReadOnly: calendar.isReadOnly,
+      );
+      if (todo != null) {
+        todos.add(todo);
+        continue;
+      }
+
+      final journal = ICalendarParser.parseJournal(
+        data,
+        calendarId: calendar.uid,
+        href: change.resolvedHref,
+        etag: change.etag,
+        isReadOnly: calendar.isReadOnly,
+      );
+      if (journal != null) {
+        journals.add(journal);
+      }
+    }
+
+    return CalendarSyncResult(
+      syncToken: raw.syncToken,
+      events: events,
+      todos: todos,
+      journals: journals,
+      deletedHrefs: deleted,
+      rawChanges: raw.changes,
+      truncated: raw.truncated,
+    );
   }
 
   static CalDavException _mapException(DioException e, String context) {

@@ -1,6 +1,8 @@
 name: caldav
-description: A comprehensive CalDAV client for Dart. Supports calendar/event CRUD, server discovery (RFC 6764), and multiple authentication methods.
-version: 1.5.0
+description: >-
+  CalDAV, CardDAV, and WebDAV client for Dart/Flutter. Calendar and contact CRUD,
+  free/busy, RFC 6578 collection sync, dual discovery (DavSession), and sync-token caching.
+version: 2.2.0
 homepage: https://github.com/ssyuk/caldav
 
 environment:

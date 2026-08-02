@@ -24,6 +24,9 @@ class Calendar {
   /// Collection tag for sync (changes when calendar content changes)
   final String? ctag;
 
+  /// RFC 6578 sync token when advertised by the server (`DAV:sync-token`).
+  final String? syncToken;
+
   /// Whether the calendar is read-only (no write privileges)
   final bool isReadOnly;
 
@@ -36,6 +39,7 @@ class Calendar {
     this.supportedComponents = const ['VEVENT'],
     this.timezone,
     this.ctag,
+    this.syncToken,
     this.isReadOnly = false,
   });
 
@@ -58,6 +62,7 @@ class Calendar {
     List<String>? supportedComponents,
     String? timezone,
     String? ctag,
+    String? syncToken,
     bool? isReadOnly,
   }) {
     return Calendar(
@@ -69,6 +74,7 @@ class Calendar {
       supportedComponents: supportedComponents ?? this.supportedComponents,
       timezone: timezone ?? this.timezone,
       ctag: ctag ?? this.ctag,
+      syncToken: syncToken ?? this.syncToken,
       isReadOnly: isReadOnly ?? this.isReadOnly,
     );
   }

@@ -4,6 +4,7 @@ import '../calendar/calendar.dart';
 import '../client/dio_webdav_client.dart';
 import '../exceptions/caldav_exception.dart';
 import '../utils/icalendar_utils.dart';
+import '../webdav/dav_depth.dart';
 import '../webdav/multistatus.dart';
 import '../webdav/xml_namespaces.dart';
 import 'icalendar_parser.dart';
@@ -70,7 +71,7 @@ class TodoService {
       final response = await _client.report(
         calendar.href.toString(),
         body: body,
-        depth: 1,
+        depth: DavDepth.one,
       );
 
       final multiStatus = MultiStatus.fromXml(response.data ?? '');
@@ -118,7 +119,7 @@ class TodoService {
       final response = await _client.report(
         calendar.href.toString(),
         body: body,
-        depth: 1,
+        depth: DavDepth.one,
       );
 
       final multiStatus = MultiStatus.fromXml(response.data ?? '');
@@ -136,6 +137,7 @@ class TodoService {
       final response = await _client.put(
         todoPath.toString(),
         body: todo.toIcalendar(),
+        contentType: 'text/calendar; charset=utf-8',
         ifNoneMatch: '*',
       );
 
@@ -159,6 +161,7 @@ class TodoService {
       final response = await _client.put(
         todo.href.toString(),
         body: todo.toIcalendar(),
+        contentType: 'text/calendar; charset=utf-8',
         ifMatch: todo.etag,
       );
 
@@ -204,7 +207,7 @@ class TodoService {
       final response = await _client.report(
         calendar.href.toString(),
         body: body,
-        depth: 1,
+        depth: DavDepth.one,
       );
 
       final multiStatus = MultiStatus.fromXml(response.data ?? '');

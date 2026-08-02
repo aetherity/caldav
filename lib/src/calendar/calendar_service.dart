@@ -3,6 +3,7 @@ import 'package:dio/dio.dart';
 import '../client/dio_webdav_client.dart';
 import '../exceptions/caldav_exception.dart';
 import '../utils/icalendar_utils.dart';
+import '../webdav/dav_depth.dart';
 import '../webdav/multistatus.dart';
 import '../webdav/propfind_builder.dart';
 import '../webdav/xml_namespaces.dart';
@@ -23,7 +24,7 @@ class CalendarService {
       final response = await _client.propfind(
         _calendarHome.toString(),
         body: body,
-        depth: 1,
+        depth: DavDepth.one,
       );
 
       final responseData = response.data;
@@ -52,7 +53,7 @@ class CalendarService {
       final response = await _client.propfind(
         calendarUrl.toString(),
         body: body,
-        depth: 0,
+        depth: DavDepth.zero,
       );
 
       final multiStatus = MultiStatus.fromXml(response.data ?? '');
@@ -175,6 +176,11 @@ class CalendarService {
       namespace: XmlNamespaces.calendarServer,
     );
 
+    final syncToken = response.getProperty(
+      'sync-token',
+      namespace: XmlNamespaces.dav,
+    );
+
     // Parse supported components
     final supportedComponentsElement = response.getPropertyElement(
       'supported-calendar-component-set',
@@ -201,6 +207,7 @@ class CalendarService {
       color: color,
       timezone: timezone,
       ctag: ctag,
+      syncToken: syncToken,
       supportedComponents: supportedComponents,
       isReadOnly: isReadOnly,
     );

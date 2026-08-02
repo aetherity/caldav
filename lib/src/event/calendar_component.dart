@@ -1,8 +1,8 @@
-/// Base class for iCalendar components shared by VEVENT and VTODO.
+/// Base class for iCalendar components shared by VEVENT, VTODO, and VJOURNAL.
 ///
-/// Holds the fields common to events and todos. Concrete subclasses
-/// ([CalendarEvent], [CalendarTodo]) add their component-specific fields
-/// and implement [toIcalendar].
+/// Holds the fields common to calendar components. Concrete subclasses
+/// ([CalendarEvent], [CalendarTodo], [CalendarJournal]) add their
+/// component-specific fields and implement [toIcalendar].
 abstract class CalendarComponent {
   /// Unique identifier (iCalendar UID)
   final String uid;

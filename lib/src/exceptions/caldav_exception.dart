@@ -52,3 +52,13 @@ class DiscoveryException extends CalDavException {
 class ParseException extends CalDavException {
   const ParseException(super.message);
 }
+
+/// Sync token is no longer valid (RFC 6578); client must re-sync from scratch.
+///
+/// Typically returned as HTTP 403 with `DAV:valid-sync-token` precondition.
+class InvalidSyncTokenException extends CalDavException {
+  const InvalidSyncTokenException([
+    super.message =
+        'Sync token is invalid or expired. Perform a full re-sync.',
+  ]) : super(statusCode: 403);
+}

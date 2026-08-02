@@ -8,10 +8,17 @@ import 'discovery/discovery_result.dart';
 import 'discovery/discovery_service.dart';
 import 'event/event.dart';
 import 'event/event_service.dart';
+import 'event/journal.dart';
+import 'event/journal_service.dart';
 import 'event/todo.dart';
 import 'event/todo_service.dart';
 import 'exceptions/caldav_exception.dart';
+import 'freebusy/free_busy.dart';
+import 'freebusy/free_busy_service.dart';
+import 'sync/calendar_sync_result.dart';
+import 'webdav/dav_depth.dart';
 import 'webdav/propfind_builder.dart';
+import 'webdav/sync_collection.dart';
 
 /// CalDAV client for interacting with CalDAV servers
 ///
@@ -36,21 +43,26 @@ class CalDavClient {
   final DioWebDavClient _webdavClient;
   final DiscoveryService _discoveryService;
   final Uri _baseUrl;
+  final bool _ownsDio;
 
   DiscoveryResult? _discoveryResult;
   CalendarService? _calendarService;
   EventService? _eventService;
   TodoService? _todoService;
+  JournalService? _journalService;
+  FreeBusyService? _freeBusyService;
 
   CalDavClient._({
     required Dio dio,
     required DioWebDavClient webdavClient,
     required DiscoveryService discoveryService,
     required Uri baseUrl,
+    bool ownsDio = true,
   })  : _dio = dio,
         _webdavClient = webdavClient,
         _discoveryService = discoveryService,
-        _baseUrl = baseUrl;
+        _baseUrl = baseUrl,
+        _ownsDio = ownsDio;
 
   /// Create a CalDAV client with Basic Authentication
   ///
@@ -149,6 +161,7 @@ class CalDavClient {
     required String baseUrl,
     required Dio dio,
     bool allowInsecure = false,
+    bool ownsDio = false,
   }) {
     final uri = Uri.parse(baseUrl);
     _validateSecureConnection(uri, allowInsecure);
@@ -160,6 +173,7 @@ class CalDavClient {
       webdavClient: webdavClient,
       discoveryService: discoveryService,
       baseUrl: uri,
+      ownsDio: ownsDio,
     );
   }
 
@@ -223,7 +237,7 @@ class CalDavClient {
       final response = await _webdavClient.propfind(
         _baseUrl.toString(),
         body: body,
-        depth: 0,
+        depth: DavDepth.zero,
       );
 
       // 207 Multi-Status indicates success
@@ -249,6 +263,19 @@ class CalDavClient {
     return _discoveryResult!;
   }
 
+  /// Seed discovery from a prior [DiscoveryResult] (e.g. [DavSession]).
+  ///
+  /// Skips network discovery and clears cached services so they rebind
+  /// to the seeded home set.
+  void seedDiscovery(DiscoveryResult result) {
+    _discoveryResult = result;
+    _calendarService = null;
+    _eventService = null;
+    _todoService = null;
+    _journalService = null;
+    _freeBusyService = null;
+  }
+
   /// Get the discovery result (null if not yet discovered)
   DiscoveryResult? get discoveryResult => _discoveryResult;
 
@@ -258,6 +285,8 @@ class CalDavClient {
     _calendarService = null;
     _eventService = null;
     _todoService = null;
+    _journalService = null;
+    _freeBusyService = null;
   }
 
   // ============================================================
@@ -455,6 +484,47 @@ class CalDavClient {
   }
 
   // ============================================================
+  // Sync (RFC 6578)
+  // ============================================================
+
+  /// Synchronize a calendar with `DAV:sync-collection`.
+  ///
+  /// ```dart
+  /// // Initial full sync
+  /// var result = await client.syncCalendar(calendar);
+  /// // persist result.syncToken, apply result.events / result.deletedHrefs
+  ///
+  /// // Later incremental sync
+  /// result = await client.syncCalendar(calendar, syncToken: result.syncToken);
+  /// ```
+  ///
+  /// Throws [InvalidSyncTokenException] if [syncToken] is no longer valid.
+  Future<CalendarSyncResult> syncCalendar(
+    Calendar calendar, {
+    String? syncToken,
+    int? limit,
+    bool includeData = true,
+    bool followTruncation = true,
+    SyncLevel level = SyncLevel.members,
+  }) async {
+    await _ensureDiscovered();
+    return _eventService!.sync(
+      calendar,
+      syncToken: syncToken,
+      limit: limit,
+      includeData: includeData,
+      followTruncation: followTruncation,
+      level: level,
+    );
+  }
+
+  /// Read a calendar's current `DAV:sync-token` without listing members.
+  Future<String?> getCalendarSyncToken(Calendar calendar) async {
+    await _ensureDiscovered();
+    return _eventService!.getSyncToken(calendar);
+  }
+
+  // ============================================================
   // Todos (VTODO)
   // ============================================================
 
@@ -529,12 +599,193 @@ class CalDavClient {
   }
 
   // ============================================================
+  // Journals (VJOURNAL)
+  // ============================================================
+
+  /// Get journal entries from a calendar.
+  ///
+  /// [start]/[end] apply a server-side time-range filter when both are given;
+  /// otherwise all journals are returned.
+  Future<List<CalendarJournal>> getJournals(
+    Calendar calendar, {
+    DateTime? start,
+    DateTime? end,
+  }) async {
+    await _ensureDiscovered();
+    return _journalService!.list(calendar, start: start, end: end);
+  }
+
+  /// Create a new journal entry.
+  ///
+  /// Returns the created journal with href and etag set.
+  /// Throws [ForbiddenException] if the calendar is read-only.
+  Future<CalendarJournal> createJournal(
+    Calendar calendar,
+    CalendarJournal journal,
+  ) async {
+    _ensureWritable(calendar);
+    await _ensureDiscovered();
+    return _journalService!.create(calendar, journal);
+  }
+
+  /// Update an existing journal.
+  ///
+  /// Uses ETag for optimistic locking if available.
+  /// Throws [ConflictException] if the journal was modified by another client.
+  /// Throws [ForbiddenException] if the journal is read-only.
+  Future<CalendarJournal> updateJournal(CalendarJournal journal) async {
+    if (journal.isReadOnly) {
+      throw const ForbiddenException('Cannot update a read-only journal');
+    }
+    await _ensureDiscovered();
+    return _journalService!.update(journal);
+  }
+
+  /// Delete a journal.
+  ///
+  /// Throws [ConflictException] if the journal was modified by another client.
+  /// Throws [ForbiddenException] if the journal is read-only.
+  Future<void> deleteJournal(CalendarJournal journal) async {
+    if (journal.isReadOnly) {
+      throw const ForbiddenException('Cannot delete a read-only journal');
+    }
+    await _ensureDiscovered();
+    return _journalService!.delete(journal);
+  }
+
+  /// Find a journal by UID across all calendars.
+  ///
+  /// Searches all calendars in parallel. Returns null if no journal is found.
+  Future<CalendarJournal?> getJournalByUid(String uid) async {
+    await _ensureDiscovered();
+    final calendars = await getCalendars();
+
+    final futures = calendars.map((calendar) async {
+      final journal = await _journalService!.findByUid(calendar, uid);
+      return journal?.copyWith(calendarId: calendar.uid);
+    });
+
+    final results = await Future.wait(futures);
+    return results.firstWhere(
+      (journal) => journal != null,
+      orElse: () => null,
+    );
+  }
+
+  // ============================================================
+  // Free / Busy (RFC 4791 free-busy-query, RFC 6638 scheduling)
+  // ============================================================
+
+  /// Query free/busy for a calendar collection (`CALDAV:free-busy-query`).
+  ///
+  /// ```dart
+  /// final fb = await client.getFreeBusy(
+  ///   calendar,
+  ///   start: DateTime.utc(2026, 8, 1),
+  ///   end: DateTime.utc(2026, 8, 8),
+  /// );
+  /// for (final period in fb.busyPeriods) {
+  ///   print('${period.type}: ${period.start} – ${period.end}');
+  /// }
+  /// ```
+  Future<FreeBusy> getFreeBusy(
+    Calendar calendar, {
+    required DateTime start,
+    required DateTime end,
+  }) async {
+    await _ensureDiscovered();
+    return _freeBusyService!.queryCalendar(
+      calendar,
+      start: start,
+      end: end,
+    );
+  }
+
+  /// Query free/busy for an arbitrary collection URL.
+  Future<FreeBusy> getFreeBusyAt(
+    Uri collectionUrl, {
+    required DateTime start,
+    required DateTime end,
+  }) async {
+    await _ensureDiscovered();
+    return _freeBusyService!.query(
+      collectionUrl,
+      start: start,
+      end: end,
+    );
+  }
+
+  /// Query free/busy for every URL in the discovered free-busy-set
+  /// (or [urls] if provided).
+  Future<List<FreeBusy>> getFreeBusySet({
+    required DateTime start,
+    required DateTime end,
+    List<Uri>? urls,
+    bool skipErrors = true,
+  }) async {
+    await _ensureDiscovered();
+    final targets = urls ?? _discoveryResult!.freeBusySet;
+    if (targets.isEmpty) {
+      // Fall back to all calendars when free-busy-set is not advertised.
+      final calendars = await getCalendars();
+      return _freeBusyService!.queryMany(
+        calendars.map((c) => c.href).toList(),
+        start: start,
+        end: end,
+        skipErrors: skipErrors,
+      );
+    }
+    return _freeBusyService!.queryMany(
+      targets,
+      start: start,
+      end: end,
+      skipErrors: skipErrors,
+    );
+  }
+
+  /// Request free/busy via the scheduling Outbox (RFC 6638).
+  ///
+  /// Requires [DiscoveryResult.scheduleOutboxUrl]. [attendees] are calendar
+  /// user addresses (email or `mailto:`).
+  Future<List<FreeBusy>> requestScheduleFreeBusy({
+    required DateTime start,
+    required DateTime end,
+    required List<String> attendees,
+    String? organizer,
+    String? uid,
+    Uri? outboxUrl,
+  }) async {
+    await _ensureDiscovered();
+    final outbox = outboxUrl ?? _discoveryResult!.scheduleOutboxUrl;
+    if (outbox == null) {
+      throw const DiscoveryException(
+        'schedule-outbox-URL not available on this principal',
+      );
+    }
+    final org = organizer ??
+        _discoveryResult!.calendarUserAddresses.firstOrNull;
+    return _freeBusyService!.requestScheduleFreeBusy(
+      outboxUrl: outbox,
+      start: start,
+      end: end,
+      attendees: attendees,
+      organizer: org,
+      uid: uid,
+    );
+  }
+
+  // ============================================================
   // Lifecycle
   // ============================================================
 
-  /// Close the client and release resources
+  /// Close the client and release resources.
+  ///
+  /// When constructed with [CalDavClient.withDio] and `ownsDio: false`
+  /// (the default), the shared Dio instance is left open.
   void close() {
-    _dio.close();
+    if (_ownsDio) {
+      _dio.close();
+    }
   }
 
   /// Access the underlying Dio instance for advanced operations
@@ -564,5 +815,7 @@ class CalDavClient {
     );
     _eventService ??= EventService(_webdavClient);
     _todoService ??= TodoService(_webdavClient);
+    _journalService ??= JournalService(_webdavClient);
+    _freeBusyService ??= FreeBusyService(_webdavClient);
   }
 }

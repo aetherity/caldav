@@ -1,4 +1,5 @@
 import 'event.dart';
+import 'journal.dart';
 import 'todo.dart';
 
 /// Parser for iCalendar (RFC 5545) data
@@ -253,6 +254,124 @@ class ICalendarParser {
       case 'NEEDS-ACTION':
       default:
         return TodoStatus.needsAction;
+    }
+  }
+
+  /// Parse iCalendar string to a single [CalendarJournal] (first VJOURNAL).
+  ///
+  /// Only UID is required; DTSTART is optional.
+  static CalendarJournal? parseJournal(
+    String icalendar, {
+    required String calendarId,
+    Uri? href,
+    String? etag,
+    bool isReadOnly = false,
+  }) {
+    final lines = _unfoldLines(icalendar);
+    final journalLines = _extractComponent(lines, 'VJOURNAL');
+
+    if (journalLines.isEmpty) return null;
+
+    final properties = _parseProperties(journalLines);
+
+    final uid = properties['UID'];
+    if (uid == null) return null;
+
+    final summary = properties['SUMMARY'] ?? 'Untitled';
+
+    final dtstart = _parseDateTime(
+      properties['DTSTART'],
+      properties['DTSTART;VALUE'],
+    );
+
+    final isAllDay = properties['DTSTART;VALUE'] == 'DATE' ||
+        (properties['DTSTART']?.length == 8);
+
+    final status = _parseJournalStatus(properties['STATUS']);
+    final classification = properties['CLASS']?.toUpperCase();
+
+    final categories = <String>[];
+    final rawCategories = properties['CATEGORIES'];
+    if (rawCategories != null && rawCategories.isNotEmpty) {
+      categories.addAll(
+        rawCategories
+            .split(',')
+            .map((c) => _unescapeIcalText(c.trim()))
+            .where((c) => c.isNotEmpty),
+      );
+    }
+
+    final rrule = properties['RRULE'];
+    final recurrenceId = properties['RECURRENCE-ID'];
+    final exdate = _parseExdate(journalLines);
+
+    return CalendarJournal(
+      uid: uid,
+      calendarId: calendarId,
+      href: href,
+      etag: etag,
+      summary: _unescapeIcalText(summary),
+      description: properties['DESCRIPTION'] != null
+          ? _unescapeIcalText(properties['DESCRIPTION']!)
+          : null,
+      location: properties['LOCATION'] != null
+          ? _unescapeIcalText(properties['LOCATION']!)
+          : null,
+      dtstart: dtstart,
+      isAllDay: isAllDay,
+      status: status,
+      classification: classification,
+      categories: categories,
+      rawIcalendar: icalendar,
+      isReadOnly: isReadOnly,
+      rrule: rrule,
+      recurrenceId: recurrenceId,
+      exdate: exdate,
+    );
+  }
+
+  /// Parse multiple VJOURNALs from an iCalendar string.
+  static List<CalendarJournal> parseJournals(
+    String icalendar, {
+    required String calendarId,
+    bool isReadOnly = false,
+  }) {
+    final lines = _unfoldLines(icalendar);
+    final journals = <CalendarJournal>[];
+
+    var inJournal = false;
+    var journalLines = <String>[];
+
+    for (final line in lines) {
+      if (line == 'BEGIN:VJOURNAL') {
+        inJournal = true;
+        journalLines = [];
+      } else if (line == 'END:VJOURNAL') {
+        inJournal = false;
+        final journal = parseJournal(
+          'BEGIN:VCALENDAR\nVERSION:2.0\nBEGIN:VJOURNAL\n${journalLines.join('\n')}\nEND:VJOURNAL\nEND:VCALENDAR',
+          calendarId: calendarId,
+          isReadOnly: isReadOnly,
+        );
+        if (journal != null) journals.add(journal);
+      } else if (inJournal) {
+        journalLines.add(line);
+      }
+    }
+
+    return journals;
+  }
+
+  /// Map an iCalendar STATUS value to [JournalStatus].
+  static JournalStatus _parseJournalStatus(String? value) {
+    switch (value?.toUpperCase()) {
+      case 'FINAL':
+        return JournalStatus.final_;
+      case 'CANCELLED':
+        return JournalStatus.cancelled;
+      case 'DRAFT':
+      default:
+        return JournalStatus.draft;
     }
   }
 

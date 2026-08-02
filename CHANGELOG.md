@@ -1,3 +1,62 @@
+## 2.2.0
+
+### Free / busy (RFC 4791 + RFC 6638)
+- `CALDAV:free-busy-query` REPORT via `CalDavClient.getFreeBusy` / `getFreeBusyAt` / `getFreeBusySet`.
+- VFREEBUSY parsing and serialization (`FreeBusy`, `FreeBusyPeriod`, `FreeBusyType`, `FreeBusyParser`).
+- Discovery of `calendar-free-busy-set`, `schedule-outbox-URL`, `schedule-inbox-URL`, and `calendar-user-address-set`.
+- Optional scheduling freebusy request: `requestScheduleFreeBusy` (POST to Outbox).
+- `WebDavClient.post` for scheduling Outbox submissions.
+
+## 2.1.0
+
+### VJOURNAL (journal entries)
+- New `CalendarJournal` model and `JournalStatus` enum (`draft`, `final_`, `cancelled`).
+- `ICalendarParser.parseJournal` / `parseJournals` for VJOURNAL parsing.
+- `CalDavClient.getJournals`, `createJournal`, `updateJournal`, `deleteJournal`, `getJournalByUid`.
+- RFC 6578 calendar sync includes journals in `CalendarSyncResult.journals`.
+
+## 2.0.0
+
+Major release: full WebDAV foundation, CardDAV, dual discovery, and RFC 6578 collection sync.
+
+### Breaking changes
+- `WebDavClient` / `DioWebDavClient` now use `DavDepth` instead of `int` for Depth headers (`0` / `1` / `infinity`).
+- `PUT` default `contentType` is `application/octet-stream` (CalDAV/CardDAV services pass calendar/vcard types explicitly).
+- `CalDavClient.withDio` / `CardDavClient.withDio` default to `ownsDio: false` (calling `close()` does not close a shared Dio).
+
+### WebDAV (RFC 4918)
+- New methods: `MKCOL`, `COPY`, `MOVE`, `HEAD`; lock-token header hooks on writes.
+- `ProppatchBuilder` with set **and** remove; richer `PropfindBuilder` presets.
+- Multistatus: response-level status, errors, location, truncation markers, `isAddressBook`.
+- `ResourceService` + `DavResource` for generic collection/resource operations.
+- `DavCapabilities` from OPTIONS (`Allow` / `DAV` headers).
+
+### CardDAV (RFC 6352)
+- New `CardDavClient` with address book and contact CRUD.
+- Discovery via `/.well-known/carddav` and `addressbook-home-set`.
+- `addressbook-query` / `addressbook-multiget`, structured `ContactFilter` search.
+- Richer vCard model (NICKNAME, PHOTO, IMPP, RELATED, GENDER, KIND/MEMBER, extras, …).
+- Focused import: `package:caldav/carddav.dart`.
+
+### Dual discovery
+- `DavSession` shares one Dio/auth for CalDAV + CardDAV with parallel discovery.
+- `DualDiscoveryResult` for partial success; `seedDiscovery` on nested clients.
+
+### Collection sync (RFC 6578)
+- `CalDavClient.syncCalendar` / `getCalendarSyncToken`.
+- `CardDavClient.syncAddressBook` / `getAddressBookSyncToken`.
+- `CalendarSyncResult` / `ContactSyncResult` with changed members, deletions, and next token.
+- Automatic truncation paging (`followTruncation`).
+- `InvalidSyncTokenException` when a stored token is rejected by the server.
+- `Calendar.syncToken` / `AddressBook.syncToken` when advertised via PROPFIND.
+
+### Sync token cache
+- `SyncTokenStore` interface with `MemorySyncTokenStore` and `JsonSyncTokenStore`.
+- `SyncTokenCache` wraps client sync, persists tokens, and auto re-syncs on invalid tokens.
+
+### Other
+- VTODO support retained from 1.5.0 (`CalendarTodo`, todo CRUD).
+
 ## 1.5.0
 - VTODO (task) support. Calendars containing `VTODO` items can now be read and managed (issue #1).
   - New `CalendarTodo` model and `TodoStatus` enum, sharing a new `CalendarComponent` base with `CalendarEvent`.
