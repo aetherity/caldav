@@ -1,8 +1,9 @@
 name: caldav
 description: >-
   CalDAV, CardDAV, and WebDAV client for Dart/Flutter. Calendar and contact CRUD,
-  free/busy, RFC 6578 collection sync, dual discovery (DavSession), and sync-token caching.
-version: 2.2.0
+  free/busy, recurrence expansion, RFC 6578 collection sync, dual discovery, and
+  sync-token caching.
+version: 2.4.0
 homepage: https://github.com/ssyuk/caldav
 
 environment:
@@ -10,6 +11,7 @@ environment:
 
 dependencies:
   dio: ^5.11.0
+  rrule: ^0.2.18
   xml: ^7.0.1
 
 dev_dependencies:

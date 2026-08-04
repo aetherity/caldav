@@ -1,6 +1,5 @@
 import 'package:test/test.dart';
 import 'package:caldav/caldav.dart';
-import 'package:caldav/src/event/icalendar_parser.dart';
 
 void main() {
   group('ICalendarParser', () {

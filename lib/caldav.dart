@@ -51,6 +51,24 @@ export 'src/event/event.dart' show CalendarEvent;
 export 'src/event/calendar_component.dart' show CalendarComponent;
 export 'src/event/todo.dart' show CalendarTodo, TodoStatus;
 export 'src/event/journal.dart' show CalendarJournal, JournalStatus;
+export 'src/event/icalendar_types.dart'
+    show
+        ICalClassification,
+        EventStatus,
+        TimeTransparency,
+        AlarmAction,
+        CalAddress,
+        GeoPosition,
+        CalendarAlarm,
+        ICalRawProperty;
+export 'src/event/icalendar_parser.dart'
+    show ICalendarParser, ICalendarDocument, PropertyBag, PropertyEntry;
+export 'src/event/recurrence_expander.dart'
+    show
+        RecurrenceExpander,
+        CalendarEventRecurrence,
+        CalendarTodoRecurrence,
+        CalendarJournalRecurrence;
 // Free/busy
 export 'src/freebusy/free_busy.dart'
     show FreeBusy, FreeBusyPeriod, FreeBusyType;

@@ -1,5 +1,6 @@
 import '../utils/icalendar_utils.dart';
 import 'calendar_component.dart';
+import 'icalendar_types.dart';
 
 /// RFC 5545 VTODO status values.
 enum TodoStatus { needsAction, inProcess, completed, cancelled }
@@ -47,6 +48,24 @@ class CalendarTodo extends CalendarComponent {
     super.rrule,
     super.recurrenceId,
     super.exdate,
+    super.rdate,
+    super.categories,
+    super.classification,
+    super.url,
+    super.geo,
+    super.created,
+    super.lastModified,
+    super.dtstamp,
+    super.sequence,
+    super.organizer,
+    super.attendees,
+    super.comments,
+    super.contacts,
+    super.resources,
+    super.relatedTo,
+    super.timeZoneId,
+    super.alarms,
+    super.extraProperties,
   });
 
   /// Convenience for simple consumers: a todo is "done" if its status is
@@ -77,6 +96,24 @@ class CalendarTodo extends CalendarComponent {
     String? rrule,
     String? recurrenceId,
     List<String>? exdate,
+    List<String>? rdate,
+    List<String>? categories,
+    ICalClassification? classification,
+    String? url,
+    GeoPosition? geo,
+    DateTime? created,
+    DateTime? lastModified,
+    DateTime? dtstamp,
+    int? sequence,
+    CalAddress? organizer,
+    List<CalAddress>? attendees,
+    List<String>? comments,
+    List<String>? contacts,
+    List<String>? resources,
+    String? relatedTo,
+    String? timeZoneId,
+    List<CalendarAlarm>? alarms,
+    List<ICalRawProperty>? extraProperties,
   }) {
     return CalendarTodo(
       uid: uid ?? this.uid,
@@ -98,6 +135,24 @@ class CalendarTodo extends CalendarComponent {
       rrule: rrule ?? this.rrule,
       recurrenceId: recurrenceId ?? this.recurrenceId,
       exdate: exdate ?? this.exdate,
+      rdate: rdate ?? this.rdate,
+      categories: categories ?? this.categories,
+      classification: classification ?? this.classification,
+      url: url ?? this.url,
+      geo: geo ?? this.geo,
+      created: created ?? this.created,
+      lastModified: lastModified ?? this.lastModified,
+      dtstamp: dtstamp ?? this.dtstamp,
+      sequence: sequence ?? this.sequence,
+      organizer: organizer ?? this.organizer,
+      attendees: attendees ?? this.attendees,
+      comments: comments ?? this.comments,
+      contacts: contacts ?? this.contacts,
+      resources: resources ?? this.resources,
+      relatedTo: relatedTo ?? this.relatedTo,
+      timeZoneId: timeZoneId ?? this.timeZoneId,
+      alarms: alarms ?? this.alarms,
+      extraProperties: extraProperties ?? this.extraProperties,
     );
   }
 
@@ -110,17 +165,22 @@ class CalendarTodo extends CalendarComponent {
 
     buffer.writeln('BEGIN:VTODO');
     buffer.writeln('UID:$uid');
-    buffer.writeln('DTSTAMP:${ICalendarUtils.formatUtc(DateTime.now().toUtc())}');
+    buffer.writeln(
+      'DTSTAMP:${ICalendarUtils.formatUtc((dtstamp ?? DateTime.now()).toUtc())}',
+    );
 
     if (dtstart != null) {
       if (isAllDay) {
-        buffer.writeln('DTSTART;VALUE=DATE:${ICalendarUtils.formatDate(dtstart!)}');
+        buffer.writeln(
+          'DTSTART;VALUE=DATE:${ICalendarUtils.formatDate(dtstart!)}',
+        );
       } else {
-        buffer.writeln('DTSTART:${ICalendarUtils.formatUtc(dtstart!.toUtc())}');
+        buffer.writeln(
+          'DTSTART:${ICalendarUtils.formatUtc(dtstart!.toUtc())}',
+        );
       }
     }
 
-    // DUE is the deadline instant, not an exclusive end — no +1 day shift.
     if (due != null) {
       if (isAllDay) {
         buffer.writeln('DUE;VALUE=DATE:${ICalendarUtils.formatDate(due!)}');
@@ -130,47 +190,96 @@ class CalendarTodo extends CalendarComponent {
     }
 
     buffer.writeln('SUMMARY:${ICalendarUtils.escapeText(summary)}');
-
-    if (description != null && description!.isNotEmpty) {
-      buffer.writeln('DESCRIPTION:${ICalendarUtils.escapeText(description!)}');
-    }
-
-    if (location != null && location!.isNotEmpty) {
-      buffer.writeln('LOCATION:${ICalendarUtils.escapeText(location!)}');
-    }
+    _writeShared(buffer);
 
     if (status != TodoStatus.needsAction) {
       buffer.writeln('STATUS:${_statusToIcal(status)}');
     }
-
     if (completed != null) {
-      buffer.writeln('COMPLETED:${ICalendarUtils.formatUtc(completed!.toUtc())}');
+      buffer.writeln(
+        'COMPLETED:${ICalendarUtils.formatUtc(completed!.toUtc())}',
+      );
     }
-
     if (percentComplete != null) {
       buffer.writeln('PERCENT-COMPLETE:$percentComplete');
     }
-
     if (priority != null && priority != 0) {
       buffer.writeln('PRIORITY:$priority');
     }
 
-    if (rrule != null && rrule!.isNotEmpty) {
-      buffer.writeln('RRULE:$rrule');
+    for (final alarm in alarms) {
+      for (final line in alarm.toIcalLines()) {
+        buffer.writeln(line);
+      }
     }
-
-    if (recurrenceId != null && recurrenceId!.isNotEmpty) {
-      buffer.writeln('RECURRENCE-ID:$recurrenceId');
-    }
-
-    if (exdate != null && exdate!.isNotEmpty) {
-      buffer.writeln('EXDATE:${exdate!.join(',')}');
+    for (final extra in extraProperties) {
+      buffer.writeln(extra.toLine());
     }
 
     buffer.writeln('END:VTODO');
     buffer.writeln('END:VCALENDAR');
 
     return buffer.toString();
+  }
+
+  void _writeShared(StringBuffer buffer) {
+    if (description != null && description!.isNotEmpty) {
+      buffer.writeln(
+        'DESCRIPTION:${ICalendarUtils.escapeText(description!)}',
+      );
+    }
+    if (location != null && location!.isNotEmpty) {
+      buffer.writeln('LOCATION:${ICalendarUtils.escapeText(location!)}');
+    }
+    if (categories.isNotEmpty) {
+      buffer.writeln(
+        'CATEGORIES:${categories.map(ICalendarUtils.escapeText).join(',')}',
+      );
+    }
+    if (classification != null) {
+      buffer.writeln('CLASS:${classification!.icalValue}');
+    }
+    if (url != null && url!.isNotEmpty) buffer.writeln('URL:$url');
+    if (geo != null) buffer.writeln('GEO:${geo!.toIcalValue()}');
+    if (created != null) {
+      buffer.writeln('CREATED:${ICalendarUtils.formatUtc(created!.toUtc())}');
+    }
+    if (lastModified != null) {
+      buffer.writeln(
+        'LAST-MODIFIED:${ICalendarUtils.formatUtc(lastModified!.toUtc())}',
+      );
+    }
+    if (sequence != null) buffer.writeln('SEQUENCE:$sequence');
+    if (organizer != null) {
+      buffer.writeln(organizer!.toPropertyLine('ORGANIZER'));
+    }
+    for (final a in attendees) {
+      buffer.writeln(a.toPropertyLine('ATTENDEE'));
+    }
+    for (final c in comments) {
+      buffer.writeln('COMMENT:${ICalendarUtils.escapeText(c)}');
+    }
+    for (final c in contacts) {
+      buffer.writeln('CONTACT:${ICalendarUtils.escapeText(c)}');
+    }
+    if (resources.isNotEmpty) {
+      buffer.writeln(
+        'RESOURCES:${resources.map(ICalendarUtils.escapeText).join(',')}',
+      );
+    }
+    if (relatedTo != null && relatedTo!.isNotEmpty) {
+      buffer.writeln('RELATED-TO:$relatedTo');
+    }
+    if (rrule != null && rrule!.isNotEmpty) buffer.writeln('RRULE:$rrule');
+    if (recurrenceId != null && recurrenceId!.isNotEmpty) {
+      buffer.writeln('RECURRENCE-ID:$recurrenceId');
+    }
+    if (exdate != null && exdate!.isNotEmpty) {
+      buffer.writeln('EXDATE:${exdate!.join(',')}');
+    }
+    if (rdate != null && rdate!.isNotEmpty) {
+      buffer.writeln('RDATE:${rdate!.join(',')}');
+    }
   }
 
   static String _statusToIcal(TodoStatus status) => switch (status) {

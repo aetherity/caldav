@@ -20,7 +20,7 @@ A Dart/Flutter client for **CalDAV**, **CardDAV**, and **WebDAV**. Calendar and 
 
 ```yaml
 dependencies:
-  caldav: ^2.2.0
+  caldav: ^2.4.0
 ```
 
 ## Quick Start (CalDAV)
@@ -357,6 +357,45 @@ await client.updateTodo(
 await client.deleteTodo(created);
 ```
 
+## Recurrence expansion
+
+Expand `RRULE` / `RDATE` / `EXDATE` into occurrence start times within a date range:
+
+```dart
+final event = CalendarEvent(
+  uid: 'standup',
+  calendarId: calendar.uid,
+  start: DateTime.utc(2026, 8, 3, 15),
+  end: DateTime.utc(2026, 8, 3, 15, 30),
+  summary: 'Standup',
+  rrule: 'FREQ=WEEKLY;BYDAY=MO;COUNT=12',
+  exdate: ['20260817T150000Z'], // skip one week
+);
+
+final dates = event.expandOccurrences(
+  rangeStart: DateTime.utc(2026, 8, 1),
+  rangeEnd: DateTime.utc(2026, 10, 1),
+);
+// List<DateTime> of occurrence starts in [rangeStart, rangeEnd)
+
+// Or via the expander directly:
+final dates2 = RecurrenceExpander.expand(
+  dtstart: event.start,
+  rrule: event.rrule,
+  rdate: event.rdate,
+  exdate: event.exdate,
+  recurrenceId: event.recurrenceId,
+  rangeStart: DateTime.utc(2026, 8, 1),
+  rangeEnd: DateTime.utc(2026, 10, 1),
+  isAllDay: event.isAllDay,
+);
+```
+
+- **Range** is half-open: `rangeStart ≤ occurrence < rangeEnd` (UTC).
+- **RECURRENCE-ID** components are treated as a single modified instance (not re-expanded).
+- **Todos** use `dtstart`, falling back to `due`. **Journals** require `dtstart`.
+- Open-ended rules are capped with `maxOccurrences` (default 10 000).
+
 ## Free / Busy
 
 Query busy time for a calendar with `CALDAV:free-busy-query` (RFC 4791):
@@ -509,7 +548,7 @@ try {
 | 4918 | WebDAV | PROPFIND, PROPPATCH, MKCOL, COPY, MOVE, REPORT, … |
 | 6578 | Collection Sync | `sync-collection` for calendars and address books |
 | 6764 | Service Discovery | CalDAV and CardDAV well-known |
-| 5545 | iCalendar | VEVENT / VTODO / VJOURNAL parse and generate |
+| 5545 | iCalendar | VEVENT / VTODO / VJOURNAL + VALARM, attendees, DURATION, shared props |
 | 6350 | vCard | Core + extended fields (3.0/4.0 subset) |
 
 ## License

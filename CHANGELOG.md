@@ -1,3 +1,23 @@
+## 2.4.0
+
+### Recurrence expansion
+- New `RecurrenceExpander` expands `RRULE` + `RDATE` − `EXDATE` into occurrence start times within a half-open `[rangeStart, rangeEnd)` window.
+- Handles `RECURRENCE-ID` exception instances (returns that occurrence only).
+- Convenience: `CalendarEvent.expandOccurrences`, `CalendarTodo.expandOccurrences`, `CalendarJournal.expandOccurrences`.
+- Depends on the [`rrule`](https://pub.dev/packages/rrule) package for RRULE evaluation.
+- Safety cap via `maxOccurrences` (default 10000).
+
+## 2.3.0
+
+### Richer iCalendar (RFC 5545) parsing and models
+- Shared component fields: `categories`, `classification`, `url`, `geo`, `created`, `lastModified`, `dtstamp`, `sequence`, `organizer`, `attendees`, `comments`, `contacts`, `resources`, `relatedTo`, `timeZoneId`, `alarms`, `rdate`, `extraProperties`.
+- VEVENT: `status`, `transparency`, `priority`, `explicitDuration` (DURATION when DTEND absent).
+- VALARM support (`CalendarAlarm` / `AlarmAction`) on events, todos, and journals.
+- `CalAddress` with CN, ROLE, PARTSTAT, RSVP, CUTYPE; quoted parameter parsing.
+- `ICalendarDocument` via `ICalendarParser.parseDocument` (PRODID/VERSION/METHOD + all components).
+- Multi-value aware `PropertyBag` / `PropertyEntry` (multiple ATTENDEE, EXDATE, etc.).
+- ISO-8601 duration parsing (`PT1H30M`, `P1W`, negative triggers).
+
 ## 2.2.0
 
 ### Free / busy (RFC 4791 + RFC 6638)

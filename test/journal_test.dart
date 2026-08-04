@@ -1,5 +1,4 @@
 import 'package:caldav/caldav.dart';
-import 'package:caldav/src/event/icalendar_parser.dart';
 import 'package:caldav/src/event/journal_service.dart';
 import 'package:test/test.dart';
 
@@ -88,8 +87,8 @@ void main() {
         description: 'Line1\nLine2',
         dtstart: DateTime.utc(2026, 8, 2, 15, 30),
         status: JournalStatus.final_,
-        classification: 'private',
-        categories: ['work', 'team'],
+        classification: ICalClassification.private_,
+        categories: const ['work', 'team'],
       );
       final ical = journal.toIcalendar();
       expect(ical, contains('DTSTART:20260802T153000Z'));
@@ -127,7 +126,7 @@ END:VCALENDAR''';
       expect(journal.dtstart, equals(DateTime.utc(2026, 8, 2)));
       expect(journal.isAllDay, isTrue);
       expect(journal.status, equals(JournalStatus.final_));
-      expect(journal.classification, equals('PUBLIC'));
+      expect(journal.classification, equals(ICalClassification.public_));
       expect(journal.categories, equals(['work', 'release']));
     });
 
