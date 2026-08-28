@@ -181,7 +181,9 @@ class CalendarEvent extends CalendarComponent {
         tzid: timeZoneId,
       );
     } else if (explicitDuration != null && end == null) {
-      buffer.writeln('DURATION:${_formatDuration(explicitDuration!)}');
+      buffer.writeln(
+        'DURATION:${ICalendarUtils.formatDuration(explicitDuration!)}',
+      );
     } else if (end != null) {
       _writeDateTime(buffer, 'DTEND', end!, isAllDay: false, tzid: timeZoneId);
     }
@@ -298,19 +300,6 @@ class CalendarEvent extends CalendarComponent {
     } else {
       buffer.writeln('$name:${ICalendarUtils.formatUtc(dt.toUtc())}');
     }
-  }
-
-  static String _formatDuration(Duration d) {
-    final hours = d.inHours;
-    final minutes = d.inMinutes.remainder(60);
-    final seconds = d.inSeconds.remainder(60);
-    final buffer = StringBuffer('PT');
-    if (hours != 0) buffer.write('${hours}H');
-    if (minutes != 0) buffer.write('${minutes}M');
-    if (seconds != 0 || (hours == 0 && minutes == 0)) {
-      buffer.write('${seconds}S');
-    }
-    return buffer.toString();
   }
 
   @override

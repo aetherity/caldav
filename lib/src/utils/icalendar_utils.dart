@@ -50,4 +50,75 @@ class ICalendarUtils {
         .replaceAll('"', '&quot;')
         .replaceAll("'", '&apos;');
   }
+
+  /// Parse an ISO-8601 / RFC 5545 duration (e.g. `PT1H30M`, `P1W1DT1H1M1S`).
+  ///
+  /// Weeks (`W`) and days (`D`) are accepted on the date side; hours, minutes,
+  /// and seconds after `T`. A leading `+` or `-` is honored.
+  static Duration? parseDuration(String raw) {
+    var s = raw.trim().toUpperCase();
+    if (s.startsWith('+')) s = s.substring(1);
+    if (s.startsWith('-')) {
+      final pos = parseDuration(s.substring(1));
+      return pos == null ? null : -pos;
+    }
+    if (!s.startsWith('P')) return null;
+    s = s.substring(1);
+
+    var days = 0, hours = 0, minutes = 0, seconds = 0;
+    final t = s.indexOf('T');
+    final datePart = t >= 0 ? s.substring(0, t) : s;
+    final timePart = t >= 0 ? s.substring(t + 1) : '';
+
+    final week = RegExp(r'(\d+)W').firstMatch(datePart);
+    if (week != null) days += int.parse(week.group(1)!) * 7;
+    final day = RegExp(r'(\d+)D').firstMatch(datePart);
+    if (day != null) days += int.parse(day.group(1)!);
+    final h = RegExp(r'(\d+)H').firstMatch(timePart);
+    if (h != null) hours = int.parse(h.group(1)!);
+    final m = RegExp(r'(\d+)M').firstMatch(timePart);
+    if (m != null) minutes = int.parse(m.group(1)!);
+    final sec = RegExp(r'(\d+)S').firstMatch(timePart);
+    if (sec != null) seconds = int.parse(sec.group(1)!);
+
+    return Duration(
+      days: days,
+      hours: hours,
+      minutes: minutes,
+      seconds: seconds,
+    );
+  }
+
+  /// Format a [Duration] as ISO-8601 / RFC 5545 (e.g. `P1W1DT1H1M1S`).
+  ///
+  /// Weeks, days, hours, minutes, and seconds are all emitted when non-zero.
+  /// Zero duration is `PT0S`. Negative values get a leading `-`.
+  static String formatDuration(Duration d) {
+    if (d.isNegative) return '-${formatDuration(d.abs())}';
+
+    const secondsPerWeek = 7 * Duration.secondsPerDay;
+    var remaining = d.inSeconds;
+    final weeks = remaining ~/ secondsPerWeek;
+    remaining %= secondsPerWeek;
+    final days = remaining ~/ Duration.secondsPerDay;
+    remaining %= Duration.secondsPerDay;
+    final hours = remaining ~/ Duration.secondsPerHour;
+    remaining %= Duration.secondsPerHour;
+    final minutes = remaining ~/ Duration.secondsPerMinute;
+    final seconds = remaining % Duration.secondsPerMinute;
+
+    final hasDate = weeks != 0 || days != 0;
+    final hasTime = hours != 0 || minutes != 0 || seconds != 0;
+
+    final buffer = StringBuffer('P');
+    if (weeks != 0) buffer.write('${weeks}W');
+    if (days != 0) buffer.write('${days}D');
+    if (hasTime || !hasDate) {
+      buffer.write('T');
+      if (hours != 0) buffer.write('${hours}H');
+      if (minutes != 0) buffer.write('${minutes}M');
+      if (seconds != 0 || !hasTime) buffer.write('${seconds}S');
+    }
+    return buffer.toString();
+  }
 }

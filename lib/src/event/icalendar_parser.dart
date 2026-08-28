@@ -1,3 +1,4 @@
+import '../utils/icalendar_utils.dart';
 import 'event.dart';
 import 'icalendar_types.dart';
 import 'journal.dart';
@@ -486,40 +487,12 @@ class ICalendarParser {
     }
   }
 
-  /// Parse ISO-8601 duration (e.g. `PT1H30M`, `P1DT2H`).
-  static Duration? parseDuration(String raw) {
-    var s = raw.trim().toUpperCase();
-    if (s.startsWith('+')) s = s.substring(1);
-    if (s.startsWith('-')) {
-      final pos = parseDuration(s.substring(1));
-      return pos == null ? null : -pos;
-    }
-    if (!s.startsWith('P')) return null;
-    s = s.substring(1);
+  /// Parse ISO-8601 duration (e.g. `PT1H30M`, `P1W1DT1H1M1S`).
+  static Duration? parseDuration(String raw) =>
+      ICalendarUtils.parseDuration(raw);
 
-    var days = 0, hours = 0, minutes = 0, seconds = 0;
-    final t = s.indexOf('T');
-    final datePart = t >= 0 ? s.substring(0, t) : s;
-    final timePart = t >= 0 ? s.substring(t + 1) : '';
-
-    final week = RegExp(r'(\d+)W').firstMatch(datePart);
-    if (week != null) days += int.parse(week.group(1)!) * 7;
-    final day = RegExp(r'(\d+)D').firstMatch(datePart);
-    if (day != null) days += int.parse(day.group(1)!);
-    final h = RegExp(r'(\d+)H').firstMatch(timePart);
-    if (h != null) hours = int.parse(h.group(1)!);
-    final m = RegExp(r'(\d+)M').firstMatch(timePart);
-    if (m != null) minutes = int.parse(m.group(1)!);
-    final sec = RegExp(r'(\d+)S').firstMatch(timePart);
-    if (sec != null) seconds = int.parse(sec.group(1)!);
-
-    return Duration(
-      days: days,
-      hours: hours,
-      minutes: minutes,
-      seconds: seconds,
-    );
-  }
+  /// Format a [Duration] as ISO-8601 (e.g. `PT1H30M`, `P1W1DT1H1M1S`).
+  static String formatDuration(Duration d) => ICalendarUtils.formatDuration(d);
 
   static String unescapeText(String text) {
     return text

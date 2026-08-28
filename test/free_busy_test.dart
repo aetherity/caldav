@@ -62,6 +62,21 @@ END:VCALENDAR''';
       expect(fb.periods.single.end, DateTime.utc(2026, 8, 2, 14, 30));
     });
 
+    test('parses FREEBUSY duration with weeks and days', () {
+      const ical = '''BEGIN:VCALENDAR
+VERSION:2.0
+BEGIN:VFREEBUSY
+UID:fb-wd
+FREEBUSY:20260802T130000Z/P1W1DT1H1M1S
+END:VFREEBUSY
+END:VCALENDAR''';
+
+      final fb = FreeBusyParser.parse(ical)!;
+      expect(fb.periods, hasLength(1));
+      expect(fb.periods.single.start, DateTime.utc(2026, 8, 2, 13));
+      expect(fb.periods.single.end, DateTime.utc(2026, 8, 10, 14, 1, 1));
+    });
+
     test('parses comma-separated periods on one FREEBUSY line', () {
       const ical = '''BEGIN:VCALENDAR
 VERSION:2.0

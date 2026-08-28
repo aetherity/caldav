@@ -144,7 +144,7 @@ class FreeBusyParser {
 
     DateTime? end;
     if (endOrDuration.startsWith('P') || endOrDuration.startsWith('+P')) {
-      final duration = _parseDuration(endOrDuration);
+      final duration = ICalendarUtils.parseDuration(endOrDuration);
       if (duration == null) return null;
       end = start.add(duration);
     } else {
@@ -153,46 +153,6 @@ class FreeBusyParser {
     if (end == null) return null;
 
     return FreeBusyPeriod(start: start, end: end, type: type);
-  }
-
-  /// Parse ISO-8601 duration used in FREEBUSY (e.g. `PT1H30M`, `P1DT2H`).
-  static Duration? _parseDuration(String raw) {
-    var s = raw.trim().toUpperCase();
-    if (s.startsWith('+')) s = s.substring(1);
-    if (s.startsWith('-')) {
-      // Negative durations are rare for FREEBUSY; reject for simplicity.
-      return null;
-    }
-    if (!s.startsWith('P')) return null;
-    s = s.substring(1);
-
-    var days = 0;
-    var hours = 0;
-    var minutes = 0;
-    var seconds = 0;
-
-    final timeIndex = s.indexOf('T');
-    final datePart = timeIndex >= 0 ? s.substring(0, timeIndex) : s;
-    final timePart = timeIndex >= 0 ? s.substring(timeIndex + 1) : '';
-
-    final dayMatch = RegExp(r'(\d+)D').firstMatch(datePart);
-    if (dayMatch != null) days = int.parse(dayMatch.group(1)!);
-    final weekMatch = RegExp(r'(\d+)W').firstMatch(datePart);
-    if (weekMatch != null) days += int.parse(weekMatch.group(1)!) * 7;
-
-    final hourMatch = RegExp(r'(\d+)H').firstMatch(timePart);
-    if (hourMatch != null) hours = int.parse(hourMatch.group(1)!);
-    final minMatch = RegExp(r'(\d+)M').firstMatch(timePart);
-    if (minMatch != null) minutes = int.parse(minMatch.group(1)!);
-    final secMatch = RegExp(r'(\d+)S').firstMatch(timePart);
-    if (secMatch != null) seconds = int.parse(secMatch.group(1)!);
-
-    return Duration(
-      days: days,
-      hours: hours,
-      minutes: minutes,
-      seconds: seconds,
-    );
   }
 
   static DateTime? _parseDateTime(String? value) {

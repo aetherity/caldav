@@ -86,6 +86,25 @@ END:VCALENDAR''';
       expect(event.duration, const Duration(hours: 1, minutes: 30));
     });
 
+    test('parses DURATION with weeks and days', () {
+      const ical = '''BEGIN:VCALENDAR
+VERSION:2.0
+BEGIN:VEVENT
+UID:dur-week-1
+DTSTART:20260810T140000Z
+DURATION:P1W1DT1H1M1S
+SUMMARY:Long
+END:VEVENT
+END:VCALENDAR''';
+
+      final event = ICalendarParser.parseEvent(ical, calendarId: 'c')!;
+      expect(
+        event.explicitDuration,
+        const Duration(days: 8, hours: 1, minutes: 1, seconds: 1),
+      );
+      expect(event.end, DateTime.utc(2026, 8, 18, 15, 1, 1));
+    });
+
     test('parses TZID on DTSTART', () {
       const ical = '''BEGIN:VCALENDAR
 VERSION:2.0
@@ -268,15 +287,49 @@ END:VCALENDAR''';
       expect(entry.value, 'mailto:jane@example.com');
     });
 
-    test('parseDuration supports weeks and negative', () {
+    test('parseDuration and formatDuration support weeks and days', () {
+      const mixed = Duration(days: 8, hours: 1, minutes: 1, seconds: 1);
+      expect(
+        ICalendarParser.parseDuration('P1W1DT1H1M1S'),
+        mixed,
+      );
+      expect(ICalendarParser.formatDuration(mixed), 'P1W1DT1H1M1S');
       expect(
         ICalendarParser.parseDuration('P1W2DT3H4M5S'),
         const Duration(days: 9, hours: 3, minutes: 4, seconds: 5),
       );
       expect(
+        ICalendarParser.formatDuration(
+          const Duration(days: 9, hours: 3, minutes: 4, seconds: 5),
+        ),
+        'P1W2DT3H4M5S',
+      );
+      expect(
         ICalendarParser.parseDuration('-PT15M'),
         const Duration(minutes: -15),
       );
+      expect(
+        ICalendarParser.formatDuration(const Duration(minutes: -15)),
+        '-PT15M',
+      );
+      expect(
+        ICalendarParser.formatDuration(const Duration(hours: 1, minutes: 30)),
+        'PT1H30M',
+      );
+      expect(ICalendarParser.formatDuration(const Duration(days: 1)), 'P1D');
+      expect(ICalendarParser.formatDuration(const Duration(days: 7)), 'P1W');
+      expect(ICalendarParser.formatDuration(Duration.zero), 'PT0S');
+    });
+
+    test('serializes DURATION with weeks and days', () {
+      final event = CalendarEvent(
+        uid: 'dur-week',
+        calendarId: 'c',
+        start: DateTime.utc(2026, 8, 10, 14),
+        explicitDuration: const Duration(days: 8, hours: 1, minutes: 1, seconds: 1),
+        summary: 'Long',
+      );
+      expect(event.toIcalendar(), contains('DURATION:P1W1DT1H1M1S'));
     });
   });
 }
