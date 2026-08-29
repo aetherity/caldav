@@ -85,7 +85,7 @@ class ContactService {
           .toList();
 
       if (urlsWithoutData.isNotEmpty) {
-        return _fetchWithMultiget(addressBook, urlsWithoutData);
+        return await _fetchWithMultiget(addressBook, urlsWithoutData);
       }
 
       return [];
@@ -304,7 +304,7 @@ class ContactService {
           .toList();
 
       if (urlsWithoutData.isNotEmpty) {
-        return _fetchWithMultiget(addressBook, urlsWithoutData);
+        return await _fetchWithMultiget(addressBook, urlsWithoutData);
       }
 
       return [];

@@ -99,7 +99,7 @@ class EventService {
 
       // Fetch via multiget if we have URLs but no calendar-data
       if (urlsWithoutData.isNotEmpty) {
-        return _fetchWithMultiget(calendar, urlsWithoutData);
+        return await _fetchWithMultiget(calendar, urlsWithoutData);
       }
 
       return [];

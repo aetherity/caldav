@@ -87,7 +87,7 @@ class JournalService {
           .toList();
 
       if (urlsWithoutData.isNotEmpty) {
-        return _fetchWithMultiget(calendar, urlsWithoutData);
+        return await _fetchWithMultiget(calendar, urlsWithoutData);
       }
 
       return [];
