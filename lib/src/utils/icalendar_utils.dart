@@ -13,6 +13,19 @@ class ICalendarUtils {
         '${utc.second.toString().padLeft(2, '0')}Z';
   }
 
+  /// Format DateTime to iCalendar floating local format (20240115T100000)
+  ///
+  /// Uses the DateTime's year/month/day/hour/minute/second as-is so a TZID
+  /// can label wall-clock time without converting to UTC.
+  static String formatFloating(DateTime dt) {
+    return '${dt.year.toString().padLeft(4, '0')}'
+        '${dt.month.toString().padLeft(2, '0')}'
+        '${dt.day.toString().padLeft(2, '0')}T'
+        '${dt.hour.toString().padLeft(2, '0')}'
+        '${dt.minute.toString().padLeft(2, '0')}'
+        '${dt.second.toString().padLeft(2, '0')}';
+  }
+
   /// Format DateTime to iCalendar date-only format (20240115)
   static String formatDate(DateTime dt) {
     return '${dt.year.toString().padLeft(4, '0')}'

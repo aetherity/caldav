@@ -294,8 +294,9 @@ class CalendarEvent extends CalendarComponent {
     if (isAllDay) {
       buffer.writeln('$name;VALUE=DATE:${ICalendarUtils.formatDate(dt)}');
     } else if (tzid != null && tzid.isNotEmpty) {
+      // Wall-clock in [tzid]; do not convert to UTC (that would shift the hour).
       buffer.writeln(
-        '$name;TZID=$tzid:${ICalendarUtils.formatUtc(dt).replaceAll('Z', '')}',
+        '$name;TZID=$tzid:${ICalendarUtils.formatFloating(dt)}',
       );
     } else {
       buffer.writeln('$name:${ICalendarUtils.formatUtc(dt.toUtc())}');

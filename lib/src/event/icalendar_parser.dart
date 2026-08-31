@@ -68,19 +68,21 @@ class ICalendarParser {
 
     final summary = bag.firstValue('SUMMARY') ?? 'Untitled';
     final dtstartEntry = bag.firstEntry('DTSTART');
+    final timeZoneId = dtstartEntry?.params['TZID'];
     final start = parseDateTimeValue(
       dtstartEntry?.value,
       dtstartEntry?.params['VALUE'],
+      tzid: timeZoneId,
     );
     if (start == null) return null;
 
     final isAllDay = _isDateOnly(dtstartEntry);
-    final timeZoneId = dtstartEntry?.params['TZID'];
 
     final dtendEntry = bag.firstEntry('DTEND');
     var end = parseDateTimeValue(
       dtendEntry?.value,
       dtendEntry?.params['VALUE'],
+      tzid: dtendEntry?.params['TZID'] ?? timeZoneId,
     );
 
     Duration? explicitDuration;
@@ -196,10 +198,12 @@ class ICalendarParser {
     final dtstart = parseDateTimeValue(
       dtstartEntry?.value,
       dtstartEntry?.params['VALUE'],
+      tzid: dtstartEntry?.params['TZID'],
     );
     final due = parseDateTimeValue(
       dueEntry?.value,
       dueEntry?.params['VALUE'],
+      tzid: dueEntry?.params['TZID'] ?? dtstartEntry?.params['TZID'],
     );
 
     final isAllDay = _isDateOnly(dtstartEntry) ||
@@ -466,7 +470,11 @@ class ICalendarParser {
   }
 
   /// Parse date-time value (UTC / local / DATE).
-  static DateTime? parseDateTimeValue(String? value, String? valueType) {
+  static DateTime? parseDateTimeValue(
+    String? value,
+    String? valueType, {
+    String? tzid,
+  }) {
     if (value == null || value.isEmpty) return null;
     try {
       if (value.endsWith('Z')) {
@@ -479,6 +487,10 @@ class ICalendarParser {
           int.parse(clean.substring(4, 6)),
           int.parse(clean.substring(6, 8)),
         );
+      }
+      // TZID wall-clock: keep the printed hour, do not shift via device TZ.
+      if (tzid != null && tzid.isNotEmpty) {
+        return _parseIsoBasic(value, isUtc: false);
       }
       // Floating local time — convert to UTC of local interpretation.
       return _parseIsoBasic(value, isUtc: false)?.toUtc();

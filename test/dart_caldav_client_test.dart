@@ -315,6 +315,23 @@ END:VCALENDAR''';
         expect(icalendar, contains('END:VCALENDAR'));
       });
 
+      test('serializes TZID as wall-clock time without UTC shift', () {
+        final event = CalendarEvent(
+          uid: 'tz-uid',
+          calendarId: 'calendar-1',
+          start: DateTime(2026, 8, 21, 15, 0, 0),
+          end: DateTime(2026, 8, 21, 16, 0, 0),
+          summary: 'Zoned',
+          timeZoneId: 'America/Chicago',
+        );
+
+        final icalendar = event.toIcalendar();
+
+        expect(icalendar, contains('DTSTART;TZID=America/Chicago:20260821T150000'));
+        expect(icalendar, contains('DTEND;TZID=America/Chicago:20260821T160000'));
+        expect(icalendar, isNot(contains('DTSTART;TZID=America/Chicago:20260821T150000Z')));
+      });
+
       test('serializes single-day all-day event (end null)', () {
         final event = CalendarEvent(
           uid: 'allday-123',
