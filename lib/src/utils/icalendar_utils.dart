@@ -26,6 +26,23 @@ class ICalendarUtils {
         '${dt.second.toString().padLeft(2, '0')}';
   }
 
+  /// Write a DTSTART/DUE/DTEND line, using TZID wall-clock when [tzid] is set.
+  static void writeTaggedDateTime(
+    StringBuffer buffer,
+    String name,
+    DateTime dt, {
+    required bool isAllDay,
+    String? tzid,
+  }) {
+    if (isAllDay) {
+      buffer.writeln('$name;VALUE=DATE:${formatDate(dt)}');
+    } else if (tzid != null && tzid.isNotEmpty) {
+      buffer.writeln('$name;TZID=$tzid:${formatFloating(dt)}');
+    } else {
+      buffer.writeln('$name:${formatUtc(dt.toUtc())}');
+    }
+  }
+
   /// Format DateTime to iCalendar date-only format (20240115)
   static String formatDate(DateTime dt) {
     return '${dt.year.toString().padLeft(4, '0')}'

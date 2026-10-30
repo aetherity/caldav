@@ -148,15 +148,13 @@ class CalendarJournal extends CalendarComponent {
     );
 
     if (dtstart != null) {
-      if (isAllDay) {
-        buffer.writeln(
-          'DTSTART;VALUE=DATE:${ICalendarUtils.formatDate(dtstart!)}',
-        );
-      } else {
-        buffer.writeln(
-          'DTSTART:${ICalendarUtils.formatUtc(dtstart!.toUtc())}',
-        );
-      }
+      ICalendarUtils.writeTaggedDateTime(
+        buffer,
+        'DTSTART',
+        dtstart!,
+        isAllDay: isAllDay,
+        tzid: timeZoneId,
+      );
     }
 
     buffer.writeln('SUMMARY:${ICalendarUtils.escapeText(summary)}');
